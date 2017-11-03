@@ -4,7 +4,7 @@ from hack import Hack
 from utility import int_to_16_bit
 
 
-window = pyglet.window.Window()
+window = pyglet.window.Window(512, 256)
 
 
 def update(dt):
