@@ -8,7 +8,7 @@ window = pyglet.window.Window()
 
 
 def update(dt):
-    pass
+    cpu.execute()
 
 
 @window.event
