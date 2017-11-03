@@ -1,26 +1,48 @@
-# import pyglet
-# import random
+import pyglet
+import sys
+from hack import Hack
+from utility import int_to_16_bit
 
 
-# window = pyglet.window.Window()
+window = pyglet.window.Window()
 
-# def update(dt):
-#     print(dt)
 
-# @window.event
-# def on_draw():
-#     batch = pyglet.graphics.Batch()
-#     window.clear()
-#     x1 = random.randint(10, 20)
-#     x2 = random.randint(30, 40)
-#     x3 = random.randint(100, 110)
-#     x4 = random.randint(120, 150)
-#     for x in range(8000):
-#         batch.add(2, pyglet.gl.GL_POINTS, None, ('v2i', (x1, x2, x3, x4)))
-#     batch.draw()
+def update(dt):
+    pass
 
-# pyglet.clock.schedule_interval(update, 0.01)
-# pyglet.app.run()
+
+@window.event
+def on_draw():
+    batch = pyglet.graphics.Batch()
+    window.clear()
+    screen_adr = 16384
+    for x in range(8192):
+        reg_addr = screen_adr + x
+        bin_val = int_to_16_bit(cpu.ram[reg_addr])
+        pixel_count = 0
+        pixels = []
+        row = x // 32
+        col_offset = x % 32
+        for i, b in enumerate(bin_val):
+            if b == '1':
+                pixels.extend([col_offset + i, row])
+        if pixel_count:
+            batch.add(pixel_count, pyglet.gl.GL_POINTS, None, ('v2i', pixels))
+    batch.draw()
+
 
 if __name__ == '__main__':
-    pass
+    args = sys.argv[1:]
+    if not args:
+        print('Error: Rom file required')
+        sys.exit(1)
+    global cpu
+    rom_file = args[0]
+    with open(rom_file, 'r+') as rm:
+        data = rm.read()
+        data = data.split('\n')
+        if '' in data:
+            data = []
+    cpu = Hack(data)
+    pyglet.clock.schedule_interval(update, 0.01)
+    pyglet.app.run()

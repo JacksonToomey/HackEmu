@@ -19,3 +19,13 @@ def binary_string_to_int(value):
 
 def match_bitmask(test, mask):
     return (test & mask) == mask
+
+def int_to_16_bit(value):
+    value = bound_value(value)
+    if value < 0:
+        value = 65536 + value
+    value = bin(value)[2:]
+    diff = 16 - len(value)
+    if diff:
+        value = ('0' * diff) + value
+    return value
