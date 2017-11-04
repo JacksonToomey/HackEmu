@@ -23,7 +23,7 @@ class Hack(object):
     D_BITWISE_AND_MEM = 0
     D_BITWISE_OR_MEM = 1344
     CONSTANT_ZERO = 2688
-    CONSTANT_ONE = 3968
+    CONSTANT_ONE = 4032
     CONSTANT_NEG_ONE = 3712
     D_REG = 768
     MEM_REG = 3072
@@ -39,6 +39,14 @@ class Hack(object):
     D_MINUS_MEM = 1216
     MEM_MINUS_D = 448
 
+    KBD = 24576
+
+    INSTR_MASK = 4032
+    JUMP_MASK = 7
+    DEST_MASK = 56
+    A_INSTR_MASK = 0x8000
+    LOAD_MASK = 4096
+
     def __init__(self, data=None):
         self.ram = Ram(32768)
         self.rom = Rom(32768, data=data)
@@ -46,116 +54,123 @@ class Hack(object):
         self.register_d = Register()
         self.program_counter = Register()
 
+    def set_key_press(self, value):
+        self.ram[self.KBD] = value
+
     def execute(self):
-        if self.is_load_op:
+        if self.c_instruction:
+            d = self.register_d.value
+            if self.from_ram:
+                mem = self.ram[self.register_a.value]
+            else:
+                mem = self.register_a.value
+            comp = self.get_comp(d, mem)
+            self.store_value(comp)
+            self.program_counter.value = self.get_next(comp)
+        else:
             self.register_a.value = self.instruction
-        else:
-            comp = self.comp
-            self.load_destinations(comp)
-            self.program_counter.value = self.get_next_instruction(comp)
+            self.program_counter.value = self.program_counter.value + 1
 
-    @property
-    def comp(self):
-        if match_bitmask(self.instruction, self.CONSTANT_ZERO):
+    def get_comp(self, d, mem):
+        if self.op == self.CONSTANT_ZERO:
             return 0
-        elif match_bitmask(self.instruction, self.CONSTANT_ONE):
+        elif self.op == self.CONSTANT_ONE:
             return 1
-        elif match_bitmask(self.instruction, self.CONSTANT_NEG_ONE):
+        elif self.op == self.CONSTANT_NEG_ONE:
             return -1
-        elif match_bitmask(self.instruction, self.D_REG):
-            return self.register_d.value
-        elif match_bitmask(self.instruction, self.MEM_REG):
-            return self.memory_register_value
-        elif match_bitmask(self.instruction, self.NOT_D):
-            return ~self.register_d.value
-        elif match_bitmask(self.instruction, self.NOT_MEM):
-            return ~self.memory_register_value
-        elif match_bitmask(self.instruction, self.NEG_D):
-            return -1 * self.register_d.value
-        elif match_bitmask(self.instruction, self.NEG_MEM):
-            return -1 * self.memory_register_value
-        elif match_bitmask(self.instruction, self.INCR_D):
-            return self.register_d.value + 1
-        elif match_bitmask(self.instruction, self.INCR_MEM):
-            return self.memory_register_value + 1
-        elif match_bitmask(self.instruction, self.DEC_D):
-            return self.register_d.value - 1
-        elif match_bitmask(self.instruction, self.DEC_MEM):
-            return self.memory_register_value - 1
-        elif match_bitmask(self.instruction, self.D_PLUS_MEM):
-            return self.memory_register_value + self.register_d.value
-        elif match_bitmask(self.instruction, self.D_MINUS_MEM):
-            return self.register_d.value - self.memory_register_value
-        elif match_bitmask(self.instruction, self.MEM_MINUS_D):
-            return self.memory_register_value - self.register_d.value
-        elif match_bitmask(self.instruction, self.D_BITWISE_OR_MEM):
-            return self.memory_register_value | self.register_d.value
+        elif self.op == self.D_REG:
+            return d
+        elif self.op == self.MEM_REG:
+            return mem
+        elif self.op == self.NOT_D:
+            return ~d
+        elif self.op == self.NOT_MEM:
+            return ~mem
+        elif self.op == self.NEG_D:
+            return -1 * d
+        elif self.op == self.NEG_MEM:
+            return -1 * mem
+        elif self.op == self.INCR_D:
+            return d + 1
+        elif self.op == self.INCR_MEM:
+            return mem + 1
+        elif self.op == self.DEC_D:
+            return d - 1
+        elif self.op == self.DEC_MEM:
+            return mem - 1
+        elif self.op == self.D_PLUS_MEM:
+            return mem + d
+        elif self.op == self.D_MINUS_MEM:
+            return d - mem
+        elif self.op == self.MEM_MINUS_D:
+            return mem - d
+        elif self.op == self.D_BITWISE_OR_MEM:
+            return mem | d
         else:
-            return self.register_d.value & self.memory_register_value
+            return d & mem
 
-    def load_destinations(self, comp):
-        if match_bitmask(self.instruction, self.DEST_M):
-            self.memory_register_value = comp
-
-        if match_bitmask(self.instruction, self.DEST_D):
+    def store_value(self, comp):
+        if self.store_m:
+            self.ram[self.register_a.value] = comp
+        if self.store_d:
             self.register_d.value = comp
-
-        if match_bitmask(self.instruction, self.DEST_A):
+        if self.store_a:
             self.register_a.value = comp
 
+    def get_next(self, comp):
+        jump = False
+        if self.jump == 1 and comp > 0:
+            jump = True
+        elif self.jump == 2 and comp == 0:
+            jump = True
+        elif self.jump == 3 and comp >= 0:
+            jump = True
+        elif self.jump == 4 and comp < 0:
+            jump = True
+        elif self.jump == 5 and comp != 0:
+            jump = True
+        elif self.jump == 6 and comp <= 0:
+            jump = True
+        elif self.jump == 7:
+            jump = True
 
-    def get_next_instruction(self, comp):
-        if (match_bitmask(self.instruction, self.JGT) and comp > 0) \
-            or (match_bitmask(self.instruction, self.JEQ) and comp == 0) \
-            or (match_bitmask(self.instruction, self.JGE) and comp >= 0) \
-            or (match_bitmask(self.instruction, self.JLT) and comp < 0) \
-            or (match_bitmask(self.instruction, self.JNE) and comp != 0) \
-            or (match_bitmask(self.instruction, self.JLE) and comp <= 0) \
-            or (match_bitmask(self.instruction, self.JMP)):
-            return self.register_a.value
-        current = self.program_counter.value
-        return current + 1
-
-    @property
-    def memory_register_value(self):
-        is_a = match_bitmask(self.instruction, self.A_INSTRUCTION)
-        if is_a:
+        if jump:
             return self.register_a.value
         else:
-            return self.ram[self.register_a.value]
-
-    @memory_register_value.setter
-    def memory_register_value(self, value):
-        is_a = match_bitmask(self.instruction, self.A_INSTRUCTION)
-        if is_a:
-            self.register_a.value = value
-        else:
-            self.ram[self.register_a.value] = value
-
-    @property
-    def is_load_op(self):
-        return not match_bitmask(self.instruction, self.LOAD_OP)
+            return self.program_counter.value + 1
 
     @property
     def instruction(self):
         return self.rom[self.program_counter.value]
 
+    @property
+    def c_instruction(self):
+        return (self.instruction & 0x8000) == 0x8000
 
-if __name__ == '__main__':
-    h = Hack(['0000000000000001'])
-    h.execute()
-    assert h.register_a.value == 1
+    @property
+    def from_ram(self):
+        return (self.instruction & 0x1000) == 0x1000
 
-    h = Hack(['0000000000000111'])
-    h.execute()
-    assert h.register_a.value == 7
+    @property
+    def op(self):
+        return self.instruction & 0xFC0
 
-    h = Hack(['0111111111111111'])
-    h.execute()
-    assert h.register_a.value == 32767
+    @property
+    def dest(self):
+        return self.instruction & 0x38
 
-    h = Hack(['1110000000000000'])
-    assert h.is_load_op is False
+    @property
+    def jump(self):
+        return self.instruction & 0x7
 
-    h = Hack(['0111111111111111'])
-    assert h.is_load_op is True
+    @property
+    def store_m(self):
+        return (self.dest & 0x8) == 0x8
+
+    @property
+    def store_d(self):
+        return (self.dest & 0x10) == 0x10
+
+    @property
+    def store_a(self):
+        return (self.dest & 0x20) == 0x20

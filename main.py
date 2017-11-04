@@ -12,6 +12,16 @@ def update(dt):
 
 
 @window.event
+def on_key_press(symbol, modifiers):
+    cpu.set_key_press(-1)
+
+
+@window.event
+def on_key_release(symbol, modifiers):
+    cpu.set_key_press(0)
+
+
+@window.event
 def on_draw():
     batch = pyglet.graphics.Batch()
     window.clear()
@@ -22,12 +32,19 @@ def on_draw():
         pixel_count = 0
         pixels = []
         row = x // 32
-        col_offset = x % 32
+        row = 255 - row
+        col_offset = (x % 32) * 16
         for i, b in enumerate(bin_val):
             if b == '1':
                 pixels.extend([col_offset + i, row])
+                pixel_count += 1
         if pixel_count:
-            batch.add(pixel_count, pyglet.gl.GL_POINTS, None, ('v2i', pixels))
+            batch.add(
+                pixel_count,
+                pyglet.gl.GL_POINTS,
+                None,
+                ('v2i', pixels),
+            )
     batch.draw()
 
 

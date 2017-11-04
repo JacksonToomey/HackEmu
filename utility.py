@@ -17,8 +17,9 @@ def binary_string_to_int(value):
     return int(hex_string, 16)
 
 
-def match_bitmask(test, mask):
-    return (test & mask) == mask
+def match_bitmask(test, match, mask):
+    return (test & mask) == match
+
 
 def int_to_16_bit(value):
     value = bound_value(value)
