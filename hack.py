@@ -1,7 +1,6 @@
 from ram import Ram
 from rom import Rom
 from register import Register
-from utility import match_bitmask
 
 
 class Hack(object):
@@ -39,23 +38,18 @@ class Hack(object):
     D_MINUS_MEM = 1216
     MEM_MINUS_D = 448
 
-    KBD = 24576
-
     INSTR_MASK = 4032
     JUMP_MASK = 7
     DEST_MASK = 56
     A_INSTR_MASK = 0x8000
     LOAD_MASK = 4096
 
-    def __init__(self, data=None):
-        self.ram = Ram(32768)
+    def __init__(self, data=None, fromq=None, toq=None):
+        self.ram = Ram(32768, fromq, toq)
         self.rom = Rom(32768, data=data)
         self.register_a = Register()
         self.register_d = Register()
         self.program_counter = Register()
-
-    def set_key_press(self, value):
-        self.ram[self.KBD] = value
 
     def execute(self):
         if self.c_instruction:
@@ -70,6 +64,7 @@ class Hack(object):
         else:
             self.register_a.value = self.instruction
             self.program_counter.value = self.program_counter.value + 1
+        self.ram.update_key_buffer()
 
     def get_comp(self, d, mem):
         if self.op == self.CONSTANT_ZERO:

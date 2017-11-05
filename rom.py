@@ -18,6 +18,7 @@ class Rom(object):
         return self._size
 
     def __getitem__(self, key):
+        key = key % self._size
         return self._registers[key].value
 
 
